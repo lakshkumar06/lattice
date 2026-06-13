@@ -48,6 +48,8 @@ is unavailable, route collateral to Base Aave V3 as the TDD fallback.
   - if platform history exists, CRE raises or lowers `creditAllocationBps` from
     on-time repayment rate, repayment depth, repaid volume, late payments,
     current outstanding debt, confidential AI risk score, delinquency, and burn
+  - `creditAllocationBps` has a hard maximum of `70%`; neither CRE nor a bad
+    report can increase borrowable supply above that ceiling
   - CRE also reports `cap`, a risk ceiling; the contract enforces the final
     borrow limit as `min(vendorCreditAllocationTotal, vendorCreditCap)`
 

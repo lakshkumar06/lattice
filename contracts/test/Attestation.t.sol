@@ -83,7 +83,7 @@ contract AttestationTest is TestBase {
 
     function test_onReport_revertsInvalidCreditAllocationBps() external {
         bytes memory report =
-            abi.encode(vendor, 100 * USDC, uint64(block.timestamp + 1 days), 10_001);
+            abi.encode(vendor, 100 * USDC, uint64(block.timestamp + 1 days), 7_001);
 
         vm.expectRevert(StakeAndAdvance.InvalidCreditAllocationBps.selector);
         vm.prank(forwarder);

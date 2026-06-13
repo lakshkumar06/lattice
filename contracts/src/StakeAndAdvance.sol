@@ -10,6 +10,7 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS = 10_000;
+    uint16 public constant MAX_CREDIT_ALLOCATION_BPS = 7_000;
     uint64 public constant REPAYMENT_WINDOW = 30 days;
 
     enum StakeState {
@@ -372,7 +373,7 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         uint16 creditAllocationBps
     ) internal {
         if (vendor_ == address(0)) revert InvalidAddress();
-        if (creditAllocationBps > BPS) revert InvalidCreditAllocationBps();
+        if (creditAllocationBps > MAX_CREDIT_ALLOCATION_BPS) revert InvalidCreditAllocationBps();
         _vendorCreditCap[vendor_] = cap;
         _vendorCapExpiry[vendor_] = expiry;
         _vendorCreditAllocationBps[vendor_] = creditAllocationBps;

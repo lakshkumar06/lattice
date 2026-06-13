@@ -41,7 +41,7 @@ const USDC = 1_000_000n;
 const MAX_MULTIPLE = 3;
 const DEFAULT_NO_HISTORY_BPS = 4_000;
 const MIN_CREDIT_ALLOCATION_BPS = 1_000;
-const MAX_CREDIT_ALLOCATION_BPS = 8_000;
+const MAX_CREDIT_ALLOCATION_BPS = 7_000;
 const REPORT_TTL_SECONDS = 7n * 24n * 60n * 60n;
 
 export function deriveConservativeCap(input: FinancialInputs, inference: ConfidentialInferenceResult) {
