@@ -17,8 +17,10 @@ import { z } from "zod";
 
 import {
   type ConfidentialInferenceResult,
+  deriveCap,
+  deriveCreditAllocationBps,
+  encodeCreditCapReport,
   type FinancialInputs,
-  underwriteVendor,
 } from "./src/creditUnderwriting";
 
 const platformTrackRecordSchema = z.object({
@@ -44,7 +46,7 @@ const financialInputsSchema = z.object({
 });
 
 export const configSchema = z.object({
-  inferenceUrl: z.string().url(),
+  inferenceUrl: z.string().min(1),
   evm: z.object({
     chainSelectorName: z.string(),
     receiver: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -78,8 +80,9 @@ function fetchInference(
   return json(response) as ConfidentialInferenceResult;
 }
 
-async function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayload) {
+function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayload) {
   const financials = decodePayload(payload);
+  runtime.log(`starting underwriting for ${financials.vendor}`);
   const httpClient = new cre.capabilities.HTTPClient();
 
   const inference = httpClient.sendRequest(
@@ -92,10 +95,17 @@ async function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayl
     }),
   )(runtime.config.inferenceUrl, financials).result();
 
-  const reportPayload = await underwriteVendor(
-    financials,
-    async () => inference,
-    BigInt(Math.floor(runtime.now().getTime() / 1000)),
+  runtime.log(`inference complete with risk=${inference.riskScore}`);
+
+  const nowSeconds = BigInt(Math.floor(runtime.now().getTime() / 1000));
+  const creditAllocationBps = deriveCreditAllocationBps(financials, inference);
+  const cap = deriveCap(financials, inference);
+  const expiry = nowSeconds + 7n * 24n * 60n * 60n;
+  const encodedPayload = encodeCreditCapReport(
+    financials.vendor,
+    cap,
+    expiry,
+    creditAllocationBps,
   );
 
   const network = getNetwork({
@@ -107,7 +117,7 @@ async function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayl
     throw new Error(`Unsupported network ${runtime.config.evm.chainSelectorName}`);
   }
 
-  const report = runtime.report(prepareReportRequest(reportPayload.encodedPayload)).result();
+  const report = runtime.report(prepareReportRequest(encodedPayload)).result();
   const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector);
   const writeResult = evmClient.writeReport(runtime, {
     receiver: runtime.config.evm.receiver,
@@ -121,18 +131,14 @@ async function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayl
     );
   }
 
-  if (!writeResult.txHash) {
-    throw new Error("writeReport succeeded without a transaction hash");
-  }
-
-  const txHash = bytesToHex(writeResult.txHash);
+  const txHash = writeResult.txHash ? bytesToHex(writeResult.txHash) : "0x";
   runtime.log(
     JSON.stringify(
       {
-        vendor: reportPayload.vendor,
-        cap: reportPayload.cap.toString(),
-        expiry: reportPayload.expiry.toString(),
-        creditAllocationBps: reportPayload.creditAllocationBps,
+        vendor: financials.vendor,
+        cap: cap.toString(),
+        expiry: expiry.toString(),
+        creditAllocationBps,
         txHash,
       },
       null,
@@ -141,10 +147,10 @@ async function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayl
   );
 
   return {
-    vendor: reportPayload.vendor,
-    cap: reportPayload.cap.toString(),
-    expiry: reportPayload.expiry.toString(),
-    creditAllocationBps: reportPayload.creditAllocationBps,
+    vendor: financials.vendor,
+    cap: cap.toString(),
+    expiry: expiry.toString(),
+    creditAllocationBps,
     txHash,
     inference,
   };
