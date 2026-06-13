@@ -42,6 +42,7 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
     mapping(uint256 stakeId => Stake stake) public stakes;
     mapping(address vendor => uint256 allocation) public vendorCreditAllocationTotal;
     mapping(address vendor => uint256 debt) public currentOutstandingDebt;
+    mapping(address vendor => uint256 obligation) public priorityObligation;
 
     mapping(address vendor => uint256 cap) internal _vendorCreditCap;
     mapping(address vendor => uint64 expiry) internal _vendorCapExpiry;
@@ -57,12 +58,21 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
     );
     event DrawnDown(address indexed vendor, uint256 amount, uint256 outstandingDebt);
     event Repaid(address indexed vendor, uint256 amount, uint256 outstandingDebt);
+    event Settled(
+        uint256 indexed stakeId,
+        address indexed user,
+        address indexed vendor,
+        uint256 immediateRefund,
+        uint256 pendingObligation
+    );
     event CreditCapUpdated(address indexed vendor, uint256 cap, uint64 expiry);
 
     error InvalidAddress();
     error InvalidAmount();
     error InvalidCollateralBps();
     error OnlyVendor();
+    error OnlyStakeUser();
+    error StakeNotActive();
     error CreditLimitExceeded();
     error RepayTooLarge();
     error UnauthorizedReportSender();
@@ -148,9 +158,34 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         if (amount > outstanding) revert RepayTooLarge();
 
         currentOutstandingDebt[msg.sender] = outstanding - amount;
+        _reducePriorityObligation(msg.sender, amount);
         usdc.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Repaid(msg.sender, amount, outstanding - amount);
+    }
+
+    function cancel(uint256 stakeId) external nonReentrant {
+        Stake storage stake = stakes[stakeId];
+        if (stake.state != StakeState.Active) revert StakeNotActive();
+        if (msg.sender != stake.user) revert OnlyStakeUser();
+
+        uint256 totalAllocationBeforeCancel = vendorCreditAllocationTotal[stake.vendor];
+        uint256 attributedDebt =
+            _attributedDebt(stake.vendor, stake.creditAllocation, totalAllocationBeforeCancel);
+        uint256 immediateRefund = stake.amount - attributedDebt;
+
+        stake.pendingObligation = attributedDebt;
+        stake.state = StakeState.Cancelled;
+        vendorCreditAllocationTotal[stake.vendor] =
+            totalAllocationBeforeCancel - stake.creditAllocation;
+
+        if (attributedDebt != 0) {
+            priorityObligation[stake.vendor] += attributedDebt;
+        }
+
+        usdc.safeTransfer(stake.user, immediateRefund);
+
+        emit Settled(stakeId, stake.user, stake.vendor, immediateRefund, attributedDebt);
     }
 
     function onReport(bytes calldata, bytes calldata) external virtual override {
@@ -168,5 +203,23 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         uint64 expiry = _vendorCapExpiry[vendor_];
         if (expiry != 0 && block.timestamp > expiry) return 0;
         return _vendorCreditCap[vendor_];
+    }
+
+    function _attributedDebt(address vendor_, uint256 allocation, uint256 totalAllocation)
+        internal
+        view
+        returns (uint256)
+    {
+        if (allocation == 0 || totalAllocation == 0) return 0;
+
+        uint256 outstanding = currentOutstandingDebt[vendor_];
+        uint256 debtShare = outstanding * allocation / totalAllocation;
+        return debtShare > allocation ? allocation : debtShare;
+    }
+
+    function _reducePriorityObligation(address vendor_, uint256 amount) internal {
+        uint256 obligation = priorityObligation[vendor_];
+        if (obligation == 0) return;
+        priorityObligation[vendor_] = amount >= obligation ? 0 : obligation - amount;
     }
 }
