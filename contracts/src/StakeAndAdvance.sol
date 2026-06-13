@@ -19,6 +19,12 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         Resolved
     }
 
+    enum Outcome {
+        RefundUser,
+        ReleaseToVendor,
+        Split
+    }
+
     struct Stake {
         address user;
         address vendor;
@@ -65,6 +71,15 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         uint256 immediateRefund,
         uint256 pendingObligation
     );
+    event DisputeRaised(uint256 indexed stakeId, address indexed raisedBy, uint64 disputedAt);
+    event DisputeResolved(
+        uint256 indexed stakeId,
+        Outcome indexed outcome,
+        uint256 userAmount,
+        uint256 vendorAmount,
+        uint256 pendingObligation
+    );
+    event AutoReleased(uint256 indexed stakeId, uint256 immediateRefund, uint256 pendingObligation);
     event CreditCapUpdated(address indexed vendor, uint256 cap, uint64 expiry);
 
     error InvalidAddress();
@@ -72,7 +87,11 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
     error InvalidCollateralBps();
     error OnlyVendor();
     error OnlyStakeUser();
+    error OnlyStakeParty();
+    error OnlyArbiter();
     error StakeNotActive();
+    error StakeNotDisputed();
+    error DisputeWindowOpen();
     error CreditLimitExceeded();
     error RepayTooLarge();
     error UnauthorizedReportSender();
@@ -169,23 +188,60 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         if (stake.state != StakeState.Active) revert StakeNotActive();
         if (msg.sender != stake.user) revert OnlyStakeUser();
 
-        uint256 totalAllocationBeforeCancel = vendorCreditAllocationTotal[stake.vendor];
-        uint256 attributedDebt =
-            _attributedDebt(stake.vendor, stake.creditAllocation, totalAllocationBeforeCancel);
-        uint256 immediateRefund = stake.amount - attributedDebt;
+        (uint256 immediateRefund, uint256 pendingObligation) =
+            _settleByCreditRule(stakeId, StakeState.Cancelled);
 
-        stake.pendingObligation = attributedDebt;
-        stake.state = StakeState.Cancelled;
-        vendorCreditAllocationTotal[stake.vendor] =
-            totalAllocationBeforeCancel - stake.creditAllocation;
+        emit Settled(stakeId, stake.user, stake.vendor, immediateRefund, pendingObligation);
+    }
 
-        if (attributedDebt != 0) {
-            priorityObligation[stake.vendor] += attributedDebt;
+    function raiseDispute(uint256 stakeId) external {
+        Stake storage stake = stakes[stakeId];
+        if (stake.state != StakeState.Active) revert StakeNotActive();
+        if (msg.sender != stake.user && msg.sender != stake.vendor) revert OnlyStakeParty();
+
+        stake.state = StakeState.Disputed;
+        stake.disputedAt = uint64(block.timestamp);
+
+        emit DisputeRaised(stakeId, msg.sender, uint64(block.timestamp));
+    }
+
+    function resolveDispute(uint256 stakeId, Outcome outcome) external nonReentrant {
+        if (msg.sender != arbiter) revert OnlyArbiter();
+
+        Stake storage stake = stakes[stakeId];
+        if (stake.state != StakeState.Disputed) revert StakeNotDisputed();
+
+        _removeAllocation(stake);
+        stake.state = StakeState.Resolved;
+
+        uint256 userAmount;
+        uint256 vendorAmount;
+        uint256 pendingObligation;
+
+        if (outcome == Outcome.RefundUser) {
+            userAmount = stake.amount;
+        } else if (outcome == Outcome.ReleaseToVendor) {
+            vendorAmount = stake.amount;
+        } else {
+            userAmount = stake.collateral;
+            vendorAmount = stake.creditAllocation;
         }
 
-        usdc.safeTransfer(stake.user, immediateRefund);
+        if (userAmount != 0) usdc.safeTransfer(stake.user, userAmount);
+        if (vendorAmount != 0) usdc.safeTransfer(stake.vendor, vendorAmount);
 
-        emit Settled(stakeId, stake.user, stake.vendor, immediateRefund, attributedDebt);
+        emit DisputeResolved(stakeId, outcome, userAmount, vendorAmount, pendingObligation);
+    }
+
+    function autoRelease(uint256 stakeId) external nonReentrant {
+        Stake storage stake = stakes[stakeId];
+        if (stake.state != StakeState.Disputed) revert StakeNotDisputed();
+        if (block.timestamp <= stake.disputedAt + disputeWindow) revert DisputeWindowOpen();
+
+        (uint256 immediateRefund, uint256 pendingObligation) =
+            _settleByCreditRule(stakeId, StakeState.Resolved);
+
+        emit AutoReleased(stakeId, immediateRefund, pendingObligation);
     }
 
     function onReport(bytes calldata, bytes calldata) external virtual override {
@@ -215,6 +271,32 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         uint256 outstanding = currentOutstandingDebt[vendor_];
         uint256 debtShare = outstanding * allocation / totalAllocation;
         return debtShare > allocation ? allocation : debtShare;
+    }
+
+    function _settleByCreditRule(uint256 stakeId, StakeState finalState)
+        internal
+        returns (uint256 immediateRefund, uint256 pendingObligation)
+    {
+        Stake storage stake = stakes[stakeId];
+        uint256 totalAllocationBeforeSettle = vendorCreditAllocationTotal[stake.vendor];
+
+        pendingObligation =
+            _attributedDebt(stake.vendor, stake.creditAllocation, totalAllocationBeforeSettle);
+        immediateRefund = stake.amount - pendingObligation;
+
+        stake.pendingObligation = pendingObligation;
+        stake.state = finalState;
+        _removeAllocation(stake);
+
+        if (pendingObligation != 0) {
+            priorityObligation[stake.vendor] += pendingObligation;
+        }
+
+        usdc.safeTransfer(stake.user, immediateRefund);
+    }
+
+    function _removeAllocation(Stake storage stake) internal {
+        vendorCreditAllocationTotal[stake.vendor] -= stake.creditAllocation;
     }
 
     function _reducePriorityObligation(address vendor_, uint256 amount) internal {
