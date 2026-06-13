@@ -6,9 +6,13 @@ import { MockUSDC } from "./mocks/MockUSDC.sol";
 import { TestBase } from "./TestBase.sol";
 
 contract StakeAndAdvanceHarness is StakeAndAdvance {
-    constructor(MockUSDC usdc_, address arbiter_, uint64 disputeWindow_, uint16 collateralBps_)
-        StakeAndAdvance(usdc_, arbiter_, disputeWindow_, collateralBps_)
-    { }
+    constructor(
+        MockUSDC usdc_,
+        address arbiter_,
+        address keystoneForwarder_,
+        uint64 disputeWindow_,
+        uint16 collateralBps_
+    ) StakeAndAdvance(usdc_, arbiter_, keystoneForwarder_, disputeWindow_, collateralBps_) { }
 
     function setCreditCap(address vendor_, uint256 cap, uint64 expiry) external {
         _setCreditCap(vendor_, cap, expiry);
@@ -33,13 +37,14 @@ contract StakeAndAdvanceTest is TestBase {
 
     address internal vendor = address(0xA11CE);
     address internal arbiter = address(0xA4B17E4);
+    address internal forwarder = address(0xF04);
     address internal user = address(0xB0B);
     address internal payer = address(0xC0FFEE);
 
     function setUp() external {
         token = new MockUSDC();
         vm.prank(vendor);
-        creditLine = new StakeAndAdvanceHarness(token, arbiter, 10 minutes, 6000);
+        creditLine = new StakeAndAdvanceHarness(token, arbiter, forwarder, 10 minutes, 6000);
 
         token.mint(user, 1_000 * USDC);
         token.mint(payer, 1_000 * USDC);

@@ -96,13 +96,22 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
     error RepayTooLarge();
     error UnauthorizedReportSender();
 
-    constructor(IERC20 usdc_, address arbiter_, uint64 disputeWindow_, uint16 collateralBps_) {
-        if (address(usdc_) == address(0) || arbiter_ == address(0)) revert InvalidAddress();
+    constructor(
+        IERC20 usdc_,
+        address arbiter_,
+        address keystoneForwarder_,
+        uint64 disputeWindow_,
+        uint16 collateralBps_
+    ) {
+        if (address(usdc_) == address(0) || arbiter_ == address(0)) {
+            revert InvalidAddress();
+        }
         if (collateralBps_ > BPS) revert InvalidCollateralBps();
 
         usdc = usdc_;
         vendor = msg.sender;
         arbiter = arbiter_;
+        keystoneForwarder = keystoneForwarder_;
         disputeWindow = disputeWindow_;
         collateralBps = collateralBps_;
     }
@@ -244,8 +253,12 @@ contract StakeAndAdvance is IReceiver, ReentrancyGuard {
         emit AutoReleased(stakeId, immediateRefund, pendingObligation);
     }
 
-    function onReport(bytes calldata, bytes calldata) external virtual override {
-        revert UnauthorizedReportSender();
+    function onReport(bytes calldata, bytes calldata report) external virtual override {
+        if (msg.sender != keystoneForwarder) revert UnauthorizedReportSender();
+
+        (address reportVendor, uint256 cap, uint64 expiry) =
+            abi.decode(report, (address, uint256, uint64));
+        _setCreditCap(reportVendor, cap, expiry);
     }
 
     function _setCreditCap(address vendor_, uint256 cap, uint64 expiry) internal {

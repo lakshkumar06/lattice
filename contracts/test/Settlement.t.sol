@@ -22,12 +22,13 @@ contract SettlementTest is TestBase {
 
     address internal vendor = address(0xA11CE);
     address internal arbiter = address(0xA4B17E4);
+    address internal forwarder = address(0xF04);
     address internal user = address(0xB0B);
 
     function setUp() external {
         token = new MockUSDC();
         vm.prank(vendor);
-        creditLine = new StakeAndAdvanceHarness(token, arbiter, 10 minutes, 6000);
+        creditLine = new StakeAndAdvanceHarness(token, arbiter, forwarder, 10 minutes, 6000);
 
         token.mint(user, 1_000 * USDC);
         token.mint(vendor, 1_000 * USDC);
