@@ -1,0 +1,14 @@
+{
+  "name": "stake-and-advance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "contracts:build": "forge build --root contracts",
+    "contracts:test": "forge test --root contracts"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "typescript": "^5.6.0"
+  },
+  "devDependencies": {}
+}
