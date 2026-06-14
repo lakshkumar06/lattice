@@ -3,7 +3,7 @@ import { formatUnits, type Address } from "viem";
 import type { PoolActivity } from "./poolActivity";
 import { USDC_DECIMALS } from "./format";
 
-const STORAGE_PREFIX = "stake-advance-value-history";
+const STORAGE_PREFIX = "lattice-value-history";
 const MAX_POINTS = 32;
 export const CHART_POINT_COUNT = 12;
 

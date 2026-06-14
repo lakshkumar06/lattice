@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 import type { DashboardView } from "../components/DashboardSections";
 
-const STORAGE_KEY = "stake-advance-view";
+const STORAGE_KEY = "lattice-view";
 
 function loadView(): DashboardView {
   if (typeof window === "undefined") return "member";

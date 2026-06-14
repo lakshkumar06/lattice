@@ -1,6 +1,6 @@
 # Pitch
 
-Stake-and-Advance lets a company's customers fund that company's working-capital credit line.
+Lattice lets a company's customers fund that company's working-capital credit line.
 
 Customers deposit USDC into a company-specific pool and receive NAV-based shares. Chainlink
 Confidential AI underwrites the company's credit cap and APR from private financial inputs plus its

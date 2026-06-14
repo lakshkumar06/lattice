@@ -1,8 +1,8 @@
-# Stake-and-Advance
+# Lattice
 
 **Your customers are the bank.**
 
-Stake-and-Advance is a per-company USDC credit pool on Arc. A company's customers deposit USDC,
+Lattice is a per-company USDC credit pool on Arc. A company's customers deposit USDC,
 receive NAV-based shares, and collectively fund an AI-underwritten credit line for that company.
 When the company repays with interest, NAV rises and members earn the spread. If the company
 defaults, outstanding principal is written down and NAV falls.
@@ -22,7 +22,7 @@ and the lenders are the company's own customers rather than institutional LPs.
 | USDC | `0x3600000000000000000000000000000000000000` |
 | Pool contract | `0xAe632832f9a588DeCe304B1f1cCb946B3cEd79e1` |
 
-Frontend wiring lives in [FRONTEND.md](/Users/lakshkumar/Desktop/SaaS/FRONTEND.md).
+Frontend wiring lives in [FRONTEND.md](./FRONTEND.md).
 
 ## Frontend Env
 
