@@ -3,14 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "contracts:build": "forge build --root contracts",
-    "contracts:test": "forge test --root contracts",
+    "build": "forge build --root contracts",
+    "test": "forge test --root contracts",
+    "test:v": "forge test --root contracts -vvv",
+    "e2e:local": "bash scripts/e2e.local.sh",
+    "server": "tsx server/index.ts",
+    "server:local": "bash scripts/server.local.sh",
+    "deploy:arc": "bash scripts/deploy.arc.sh",
+    "keeper:mark-default": "tsx keeper/markDefault.ts",
     "cre:build": "cre workflow build ./cre",
     "cre:simulate": "cre workflow simulate ./cre --trigger-index 0 --http-payload ./cre/http-payload.json -T staging-settings -e ./.env",
-    "cre:simulate:broadcast": "cre workflow simulate ./cre --broadcast --trigger-index 0 --http-payload ./cre/http-payload.json -T staging-settings -e ./.env",
-    "cre:inference": "tsx server/inference.ts",
-    "server:dev": "tsx server/index.ts",
-    "keeper:auto-release": "tsx keeper/autoRelease.ts"
+    "cre:simulate:broadcast": "cre workflow simulate ./cre --broadcast --trigger-index 0 --http-payload ./cre/http-payload.json -T staging-settings -e ./.env"
   },
   "dependencies": {
     "@chainlink/cre-sdk": "^1.6.0",
