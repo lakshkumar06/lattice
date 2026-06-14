@@ -1,15 +1,11 @@
-export type WorldIdMode = "dev" | "cloud";
-
 export type ServerConfig = {
   port: number;
+  rpcUrl: string;
   chainId: number;
   contract: `0x${string}`;
-  worldIdSignerKey: `0x${string}`;
-  worldIdMode: WorldIdMode;
-  worldAction: string;
-  worldAppId: string | undefined;
-  worldVerifyUrl: string | undefined;
-  voucherTtlSeconds: number;
+  reporterKey: `0x${string}`;
+  confidentialAiEndpoint: string | undefined;
+  confidentialAiApiKey: string | undefined;
 };
 
 function required(name: string): string {
@@ -18,15 +14,15 @@ function required(name: string): string {
   return value;
 }
 
-function hexPrivateKey(name: string): `0x${string}` {
+function privateKey(name: string): `0x${string}` {
   const value = required(name);
   if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
-    throw new Error(`${name} must be a 0x-prefixed 32-byte hex private key`);
+    throw new Error(`${name} must be a 0x-prefixed 32-byte private key`);
   }
   return value as `0x${string}`;
 }
 
-function contractAddress(name: string): `0x${string}` {
+function address(name: string): `0x${string}` {
   const value = required(name);
   if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(`${name} must be a 0x-prefixed EVM address`);
@@ -37,14 +33,12 @@ function contractAddress(name: string): `0x${string}` {
 export function configFromEnv(overrides: Partial<ServerConfig> = {}): ServerConfig {
   return {
     port: Number(process.env.PORT ?? 8788),
-    chainId: Number(process.env.ARC_CHAIN_ID ?? process.env.CHAIN_ID ?? 5042002),
-    contract: contractAddress("STAKE_AND_ADVANCE_ADDRESS"),
-    worldIdSignerKey: hexPrivateKey("WORLD_ID_SIGNER_PRIVATE_KEY"),
-    worldIdMode: (process.env.WORLD_ID_MODE as WorldIdMode | undefined) ?? "dev",
-    worldAction: process.env.WORLD_ACTION ?? "claim-free-subscription",
-    worldAppId: process.env.WORLD_APP_ID,
-    worldVerifyUrl: process.env.WORLD_VERIFY_URL,
-    voucherTtlSeconds: Number(process.env.VOUCHER_TTL_SECONDS ?? 900),
+    rpcUrl: process.env.RPC_URL ?? process.env.ARC_RPC_URL ?? "http://127.0.0.1:8545",
+    chainId: Number(process.env.CHAIN_ID ?? process.env.ARC_CHAIN_ID ?? 5042002),
+    contract: address("STAKE_AND_ADVANCE_ADDRESS"),
+    reporterKey: privateKey("REPORTER_PRIVATE_KEY"),
+    confidentialAiEndpoint: process.env.CONFIDENTIAL_AI_ENDPOINT,
+    confidentialAiApiKey: process.env.CONFIDENTIAL_AI_API_KEY,
     ...overrides,
   };
 }

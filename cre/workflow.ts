@@ -18,7 +18,7 @@ import { z } from "zod";
 import {
   type ConfidentialInferenceResult,
   deriveCap,
-  deriveCreditAllocationBps,
+  deriveInterestRateBps,
   encodeCreditCapReport,
   type FinancialInputs,
 } from "./src/creditUnderwriting";
@@ -28,8 +28,8 @@ const platformTrackRecordSchema = z.object({
   repaymentCount: z.number(),
   onTimeRepaymentCount: z.number(),
   lateRepaymentCount: z.number(),
-  onTimeRepaymentBps: z.number(),
-  totalRepaidUsdc: z.number(),
+  totalInterestPaidUsdc: z.number(),
+  defaultedAmountUsdc: z.number(),
   currentOutstandingDebtUsdc: z.number(),
   currentDebtDueAt: z.number(),
 });
@@ -98,14 +98,14 @@ function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayload) {
   runtime.log(`inference complete with risk=${inference.riskScore}`);
 
   const nowSeconds = BigInt(Math.floor(runtime.now().getTime() / 1000));
-  const creditAllocationBps = deriveCreditAllocationBps(financials, inference);
   const cap = deriveCap(financials, inference);
+  const interestRateBps = deriveInterestRateBps(financials, inference);
   const expiry = nowSeconds + 7n * 24n * 60n * 60n;
   const encodedPayload = encodeCreditCapReport(
     financials.vendor,
     cap,
     expiry,
-    creditAllocationBps,
+    interestRateBps,
   );
 
   const network = getNetwork({
@@ -138,7 +138,7 @@ function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayload) {
         vendor: financials.vendor,
         cap: cap.toString(),
         expiry: expiry.toString(),
-        creditAllocationBps,
+        interestRateBps,
         txHash,
       },
       null,
@@ -150,7 +150,7 @@ function onHttpTrigger(runtime: Runtime<WorkflowConfig>, payload: HTTPPayload) {
     vendor: financials.vendor,
     cap: cap.toString(),
     expiry: expiry.toString(),
-    creditAllocationBps,
+    interestRateBps,
     txHash,
     inference,
   };
