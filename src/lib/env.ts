@@ -1,7 +1,7 @@
 import { isAddress, type Address } from "viem";
 
 const defaultApiBase = "http://127.0.0.1:8788";
-const defaultStakeAndAdvanceAddress = "0xAe632832f9a588DeCe304B1f1cCb946B3cEd79e1";
+const defaultStakeAndAdvanceAddress = "0x851E0D7A37E3b2b4823794dbc68341D6db7c6441";
 
 function normalizeOptionalEnv(value: string | undefined) {
   const trimmed = value?.trim();

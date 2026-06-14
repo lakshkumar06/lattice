@@ -8,7 +8,7 @@ Live defaults are already in `src/lib`.
 | Chain ID | `5042002` |
 | RPC | `https://rpc.testnet.arc.network` |
 | USDC | `0x3600000000000000000000000000000000000000` |
-| Pool | `0xAe632832f9a588DeCe304B1f1cCb946B3cEd79e1` |
+| Pool | `0x851E0D7A37E3b2b4823794dbc68341D6db7c6441` |
 
 Use:
 
@@ -61,7 +61,7 @@ Run underwriting:
 ```bash
 curl -X POST localhost:8788/cre/underwrite \
   -H 'content-type: application/json' \
-  -d '{"vendor":"0x19E95b026731974B7c1feD9eb3c3113fBDD80464","currentDepositedPrincipalUsdc":250,"monthlyRecurringRevenueUsd":5000,"grossMarginBps":8000,"cashBalanceUsd":50000,"monthlyBurnUsd":20000,"delinquencyRateBps":100}'
+  -d '{"vendor":"0xDb62c53403dD118f228ef3c015c41cFbE2c60846","currentDepositedPrincipalUsdc":250,"monthlyRecurringRevenueUsd":5000,"grossMarginBps":8000,"cashBalanceUsd":50000,"monthlyBurnUsd":20000,"delinquencyRateBps":100}'
 ```
 
 Recommended first screen: one pool dashboard with NAV, APR, cash, outstanding debt, available borrow,
